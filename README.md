@@ -1,5 +1,8 @@
 # Symphony
 
+This fork uses GitHub Issues for application work. See the
+[GitHub setup](docs/github-issues.md) and root [WORKFLOW.md](WORKFLOW.md).
+
 Symphony turns project work into isolated, autonomous implementation runs, allowing teams to manage
 work instead of supervising coding agents.
 
