@@ -40,11 +40,13 @@ root `WORKFLOW.md` instead. Starting the service processes eligible issues.
 
 The GitHub workflow pins Codex to `gpt-5.6-luna` with `max` reasoning effort
 through `codex.command` CLI overrides, independently of the host's default model
-and reasoning effort. The execution host must have a Codex CLI version and account
-that support this model and effort. If the service uses a separate deployed copy
-of `WORKFLOW.md`, update that copy as well; merging this repository change alone
-does not update the deployed workflow. The settings apply to newly started Codex
-app-server sessions.
+and reasoning effort. It also sets `codex.approval_policy: never` for unattended
+execution and compatibility with Codex versions that accept string approval
+policies but not object-form rejection policies. The execution host must have a
+Codex CLI version and account that support this model and effort. If the service
+uses a separate deployed copy of `WORKFLOW.md`, update that copy as well; merging
+this repository change alone does not update the deployed workflow. The settings
+apply to newly started Codex app-server sessions.
 
 ## Ticket lifecycle
 

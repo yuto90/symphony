@@ -20,6 +20,7 @@ agent:
   max_turns: 20
 codex:
   command: codex app-server -c model='"gpt-5.6-luna"' -c model_reasoning_effort='"max"'
+  approval_policy: never
   turn_sandbox_policy:
     type: workspaceWrite
     networkAccess: true
