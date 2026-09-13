@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   make-all:
     runs-on: ubuntu-latest
@@ -36,3 +39,103 @@ jobs:
 
       - name: Verify make all
         run: make all
+
+  deployment-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Test deployment transaction
+        run: python3 -m unittest discover -s deploy/tests -v
+      - name: Validate bootstrap script
+        run: bash -n deploy/install.sh
+
+  linux-binary:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: elixir
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
+        with:
+          install: true
+          cache: true
+          working_directory: elixir
+      - name: Install build dependencies
+        run: |
+          mise install zig@0.15.2
+          sudo apt-get update
+          sudo apt-get install -y xz-utils
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+      - name: Build Linux executable
+        run: BURRITO_TARGET=linux_x86_64 MIX_ENV=prod mise exec zig@0.15.2 -- mix release symphony --overwrite
+      - name: Smoke test executable
+        run: |
+          chmod +x burrito_out/symphony_linux_x86_64
+          set +e
+          output="$(SYMPHONY_INSTALL_DIR="$RUNNER_TEMP/symphony-smoke" burrito_out/symphony_linux_x86_64 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -F "This Symphony implementation is a low key engineering preview." <<<"$output"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vps-linux-binary
+          path: elixir/burrito_out/symphony_linux_x86_64
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-vps:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [make-all, deployment-tests, linux-binary]
+    runs-on: ubuntu-24.04
+    environment: vps-production
+    concurrency:
+      group: symphony-vps-production
+      cancel-in-progress: false
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: vps-linux-binary
+          path: dist
+      - name: Skip superseded commits
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          latest="$(gh api "repos/$REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if test "$latest" = "$GITHUB_SHA"; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Skipped: a newer main commit is waiting for CI.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload and activate release
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/symphony-deploy-key"
+          hosts="$RUNNER_TEMP/symphony-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          binary=dist/symphony_linux_x86_64
+          checksum="$(sha256sum "$binary" | cut -d ' ' -f 1)"
+          ssh -T -i "$key" -p "$VPS_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$hosts" -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
+            "symphony-deploy@$VPS_HOST" \
+            "deploy $GITHUB_SHA $checksum" < "$binary"
+          echo "Deployed commit $GITHUB_SHA to all running Symphony instances." >> "$GITHUB_STEP_SUMMARY"
