@@ -19,7 +19,7 @@ agent:
   max_concurrent_agents: 1
   max_turns: 20
 codex:
-  command: codex app-server
+  command: codex app-server -c model='"gpt-5.6-luna"' -c model_reasoning_effort='"max"'
   turn_sandbox_policy:
     type: workspaceWrite
     networkAccess: true
