@@ -132,11 +132,10 @@ jobs:
           [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
           binary=dist/symphony_linux_x86_64
           checksum="$(sha256sum "$binary" | cut -d ' ' -f 1)"
-          size="$(stat -c %s "$binary")"
           ssh -T -i "$key" -p "$VPS_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$hosts" -o ConnectTimeout=15 \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
             "symphony-deploy@$VPS_HOST" \
-            "deploy $GITHUB_SHA $GITHUB_RUN_NUMBER $checksum $size" < "$binary"
+            "deploy $GITHUB_SHA $checksum" < "$binary"
           echo "Deployed commit $GITHUB_SHA to all running Symphony instances." >> "$GITHUB_STEP_SUMMARY"

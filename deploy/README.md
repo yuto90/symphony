@@ -8,8 +8,8 @@ their existing workflow.
 
 The deployment job checks that its commit is still main's head before sending.
 GitHub concurrency serializes deployment jobs without cancelling an active job.
-The VPS additionally holds a file lock and persists the highest accepted
-`make-all` run number, rejecting older runs even if GitHub schedules them later.
+The VPS additionally holds a file lock through the whole transaction and recovery.
+If jobs are scheduled out of order, the latest-main check skips the older commit.
 Superseded commits can be skipped; the latest successful head is the target.
 
 ## VPS contract
@@ -25,8 +25,8 @@ Superseded commits can be skipped; the latest successful head is the target.
   A running incompatible unit or zero running units fails deployment before switching.
 - Coordinate manual service/configuration changes outside a deployment window.
 
-The helper accepts only `deploy COMMIT_SHA RUN_NUMBER SHA256 BYTE_COUNT` and reads
-at most 256 MiB from stdin. It verifies the checksum, stages an immutable
+The helper accepts only `deploy COMMIT_SHA SHA256` and accepts
+at most 256 MiB from SSH stdin. It verifies the checksum, stages an immutable
 `releases/<commit>-<sha256>/symphony`, and atomically replaces the common symlink.
 It restarts each target and requires three consecutive healthy API samples with
 the same new PID. Services switch sequentially, so there is a short mixed-version
@@ -60,7 +60,7 @@ releases are retained for manual recovery; monitor available disk space.
    Obtain host keys through an already trusted administrative connection. Do not
    trust an unauthenticated `ssh-keyscan` result by itself.
 4. Verify that connecting with this key and command `true` is rejected with
-   `Expected: deploy SHA SEQUENCE SHA256 SIZE`. Shell, SCP/SFTP, forwarding and PTY
+   `Expected: deploy SHA SHA256`. Shell, SCP/SFTP, forwarding and PTY
    access are intentionally unavailable.
 5. Merge the PR as a human. Inspect the `deploy-vps` job and each service's API.
    Check `/opt/symphony/current` resolves to the expected commit plus checksum.
@@ -73,16 +73,16 @@ restricted to trusted main code and protect main merges.
 
 ## Retry and recovery
 
-Re-run failed jobs after resolving the underlying issue. Retries of the same run
-and commit are accepted; content-addressed releases also allow rebuilt binaries.
-Older run numbers are rejected even if the newer attempt rolled back. If main has
-advanced, use its CI run. Do not rename/reset the `make-all` workflow's run-number
-history without coordinating the root-owned `deploy-sequence.json` marker.
+Re-run failed jobs after resolving the underlying issue. Content-addressed releases
+allow retries and rebuilt binaries. If main has advanced, the latest-main check
+skips the old run; use the latest commit's CI instead. Always deploy through this
+workflow so its concurrency and freshness checks apply; the root helper does not
+maintain a separate version-order database.
 
 If automatic recovery fails, an administrator should restore a known-good release
 symlink, restart the original affected units and verify their APIs. The helper's
 job output identifies the failing services. Do not delete old releases during a
-deployment or silently reset the monotonic sequence marker.
+deployment.
 
 ## Validation
 

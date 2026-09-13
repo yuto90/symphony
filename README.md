@@ -39,9 +39,11 @@ help with the setup:
 
 ---
 
-## License
+## VPS deployment
 
 VPS operators can enable [automatic deployment after main merges](deploy/README.md),
 including restart and rollback of all running Symphony instances.
+
+## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).

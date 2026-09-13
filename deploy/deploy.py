@@ -92,38 +92,26 @@ def atomic_link(link, target):
 
 
 def deploy(command, stream, root=ROOT, services=None):
-    match = re.fullmatch(r'deploy ([0-9a-f]{40}) ([1-9][0-9]{0,15}) ([0-9a-f]{64}) ([1-9][0-9]{0,8})', command)
+    match = re.fullmatch(r'deploy ([0-9a-f]{40}) ([0-9a-f]{64})', command)
     if not match:
-        raise ValueError('Expected: deploy SHA SEQUENCE SHA256 SIZE')
-    sha, sequence, digest, size = match.groups()
-    sequence, size = int(sequence), int(size)
-    if size > MAX_BYTES:
-        raise ValueError('Artifact too large')
+        raise ValueError('Expected: deploy SHA SHA256')
+    sha, digest = match.groups()
     services = services or Services()
     with (root / '.deploy.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        marker = root / 'deploy-sequence.json'
-        if marker.exists():
-            previous = json.loads(marker.read_text())
-            if sequence < previous['sequence']:
-                raise ValueError('Refusing older deployment')
-            if sequence == previous['sequence'] and sha != previous['sha']:
-                raise ValueError('Sequence already belongs to another commit')
-
         releases = root / 'releases'
         releases.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='.upload-', dir=releases) as temporary:
             binary = Path(temporary) / 'symphony'
             checksum = hashlib.sha256()
-            remaining = size
+            received = 0
             with binary.open('wb') as output:
-                while remaining:
-                    chunk = stream.read(min(remaining, 1024 * 1024))
-                    if not chunk:
-                        raise ValueError('Truncated artifact')
+                while chunk := stream.read(1024 * 1024):
+                    received += len(chunk)
+                    if received > MAX_BYTES:
+                        raise ValueError('Artifact too large')
                     checksum.update(chunk)
                     output.write(chunk)
-                    remaining -= len(chunk)
                 output.flush()
                 os.fsync(output.fileno())
             if checksum.hexdigest() != digest:
@@ -147,9 +135,6 @@ def deploy(command, stream, root=ROOT, services=None):
                 Path(temporary).chmod(0o755)
                 os.rename(temporary, release)
 
-        next_marker = marker.with_suffix('.next')
-        next_marker.write_text(json.dumps({'sequence': sequence, 'sha': sha}))
-        os.replace(next_marker, marker)
         log(f'Deploying {sha} to {len(targets)} instances')
         try:
             atomic_link(current, release)

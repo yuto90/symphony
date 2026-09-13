@@ -30,8 +30,8 @@ class DeploymentTests(unittest.TestCase):
         self.release = f'{self.sha}-{self.digest}'
         self.services = FakeServices(self.root)
 
-    def run_deploy(self, sequence=2, digest=None):
-        command = f'deploy {self.sha} {sequence} {digest or self.digest} {len(self.payload)}'
+    def run_deploy(self, digest=None):
+        command = f'deploy {self.sha} {digest or self.digest}'
         return self.module.deploy(command, io.BytesIO(self.payload), self.root, self.services)
 
     def test_all_running_services_switch_to_new_release(self):
@@ -53,15 +53,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(self.services.restarts, [])
         self.assertEqual((self.root / 'current').resolve().name, 'old')
 
-    def test_older_deployment_is_rejected(self):
-        self.run_deploy(sequence=5)
-        self.services.restarts.clear()
-        with self.assertRaisesRegex(ValueError, 'older'):
-            self.run_deploy(sequence=4)
-        self.assertEqual(self.services.restarts, [])
-
     def test_invalid_command_is_rejected(self):
-        for command in ['sh', 'deploy ../../escape 1 x 3', f'deploy {self.sha} 1 {self.digest} 9999999999']:
+        for command in ['sh', 'deploy ../../escape x', f'deploy {self.sha} {self.digest}; true']:
             with self.assertRaises(ValueError):
                 self.module.deploy(command, io.BytesIO(b''), self.root, self.services)
         self.assertEqual(self.services.restarts, [])
@@ -73,9 +66,16 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual((self.root / 'current').resolve().name, 'old')
 
     def test_truncated_upload_does_not_switch(self):
-        with self.assertRaisesRegex(ValueError, 'Truncated'):
-            self.module.deploy(f'deploy {self.sha} 2 {self.digest} 100', io.BytesIO(self.payload), self.root, self.services)
+        with self.assertRaisesRegex(ValueError, 'checksum'):
+            self.module.deploy(f'deploy {self.sha} {self.digest}', io.BytesIO(self.payload[:-1]), self.root, self.services)
         self.assertEqual(self.services.restarts, [])
+
+    def test_oversized_upload_does_not_switch(self):
+        with patch.object(self.module, 'MAX_BYTES', 3):
+            with self.assertRaisesRegex(ValueError, 'too large'):
+                self.run_deploy()
+        self.assertEqual(self.services.restarts, [])
+        self.assertEqual((self.root / 'current').resolve().name, 'old')
 
     def test_same_commit_can_be_rebuilt_and_retried(self):
         self.run_deploy()
