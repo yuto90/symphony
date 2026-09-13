@@ -142,6 +142,18 @@ class DeploymentTests(unittest.TestCase):
             service.healthy('symphony-a.service', 4001, '10')
         self.assertEqual(calls, ['101', '102', '102', '102'])
 
+    def test_repeated_port_is_rejected_before_activation(self):
+        service = self.module.Services()
+        for repeated in ['--port 4002', '--port=4002']:
+            with self.subTest(repeated=repeated), patch.object(service, 'command', side_effect=[
+                'symphony-a.service loaded active running Symphony',
+                '{ path=/opt/symphony/current/symphony ; argv[]=/opt/symphony/current/symphony --port 4001 ' + repeated + ' /etc/symphony/WORKFLOW.md ; }',
+                '42',
+            ]):
+                with self.assertRaisesRegex(RuntimeError, 'exactly one explicit --port'):
+                    self.module.deploy(f'deploy {self.sha} {self.digest}', io.BytesIO(self.payload), self.root, service)
+                self.assertEqual((self.root / 'current').resolve().name, 'old')
+
 
 class FakeServices:
     def __init__(self, root):

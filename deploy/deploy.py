@@ -46,6 +46,8 @@ class Services:
             executable = self.command('show', name, '--property=ExecStart', '--value')
             if not re.search(r'path=/opt/symphony/current/symphony\s*;', executable):
                 raise RuntimeError(f'{name} does not use the shared executable')
+            if len(re.findall(r'(?<!\S)--port(?=[=\s])', executable)) != 1:
+                raise RuntimeError(f'{name} needs exactly one explicit --port')
             match = re.search(r'--port\s+(\d+)(?:\s|;)', executable)
             if not match or not 1 <= int(match[1]) <= 65535 or int(match[1]) in ports:
                 raise RuntimeError(f'{name} needs a unique explicit --port')

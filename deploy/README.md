@@ -18,7 +18,8 @@ Superseded commits can be skipped; the latest successful head is the target.
 - Root-owned `/opt/symphony/releases` and `/opt/symphony/current` release symlink.
 - Each running `symphony-*.service` must use
   `/opt/symphony/current/symphony` as its ExecStart executable and have a unique,
-  explicit `--port NUMBER` with its State API available on localhost.
+  explicit `--port NUMBER` with its State API available on localhost. Repeated
+  `--port` options are rejected before activation, including `--port=NUMBER` repeats.
 - Configuration, Codex credentials, logs and workspaces remain outside the release.
 - Only units in the `running` substate at discovery are restarted. Stopped units
   remain stopped; new units following this contract are discovered automatically.
