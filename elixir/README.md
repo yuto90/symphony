@@ -149,13 +149,16 @@ Notes:
 - `tracker.required_labels` is optional. When set, an issue must have every
   configured label to dispatch or continue running. Label matching ignores
   case and surrounding whitespace. A blank configured label matches no issue.
-- Safer Codex defaults are used when policy fields are omitted:
-  - `codex.approval_policy` defaults to `{"reject":{"sandbox_approval":true,"rules":true,"mcp_elicitations":true}}`
+- Unattended-compatible Codex defaults are used when policy fields are omitted:
+  - `codex.approval_policy` defaults to `never`, so supported Codex app-server versions do not
+    pause for approval
   - `codex.thread_sandbox` defaults to `workspace-write`
   - `codex.turn_sandbox_policy` defaults to a `workspaceWrite` policy rooted at the current issue workspace
 - `codex.turn_timeout_ms` is the maximum silence interval while a turn is streaming. Each
   app-server update resets it; it is not a total turn runtime cap.
-- Supported `codex.approval_policy` values depend on the targeted Codex app-server version. In the current local Codex schema, string values include `untrusted`, `on-failure`, `on-request`, and `never`, and object-form `reject` is also supported.
+- Supported `codex.approval_policy` values depend on the targeted Codex app-server version. Prefer
+  `never` for unattended execution; other values, including object forms, are passed through and
+  require compatibility with the installed Codex app-server.
 - Supported `codex.thread_sandbox` values: `read-only`, `workspace-write`, `danger-full-access`.
 - When `codex.turn_sandbox_policy` is set explicitly, Symphony passes the map through to Codex
   unchanged. Compatibility then depends on the targeted Codex app-server version rather than local

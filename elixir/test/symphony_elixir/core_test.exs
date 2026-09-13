@@ -2007,7 +2007,7 @@ defmodule SymphonyElixir.CoreTest do
     end
   end
 
-  test "app server starts with workspace cwd and expected startup command" do
+  test "app server starts with workspace cwd and compatible default approval policy" do
     test_root =
       Path.join(
         System.tmp_dir!(),
@@ -2067,7 +2067,8 @@ defmodule SymphonyElixir.CoreTest do
 
       write_workflow_file!(Workflow.workflow_file_path(),
         workspace_root: workspace_root,
-        codex_command: "#{codex_binary} app-server"
+        codex_command: "#{codex_binary} app-server",
+        codex_approval_policy: nil
       )
 
       issue = %Issue{
@@ -2098,16 +2099,8 @@ defmodule SymphonyElixir.CoreTest do
                  |> String.trim_leading("JSON:")
                  |> Jason.decode!()
                  |> then(fn payload ->
-                   expected_approval_policy = %{
-                     "reject" => %{
-                       "sandbox_approval" => true,
-                       "rules" => true,
-                       "mcp_elicitations" => true
-                     }
-                   }
-
                    payload["method"] == "thread/start" &&
-                     get_in(payload, ["params", "approvalPolicy"]) == expected_approval_policy &&
+                     get_in(payload, ["params", "approvalPolicy"]) == "never" &&
                      get_in(payload, ["params", "sandbox"]) == "workspace-write" &&
                      get_in(payload, ["params", "cwd"]) == canonical_workspace
                  end)
@@ -2131,17 +2124,9 @@ defmodule SymphonyElixir.CoreTest do
                  |> String.trim_leading("JSON:")
                  |> Jason.decode!()
                  |> then(fn payload ->
-                   expected_approval_policy = %{
-                     "reject" => %{
-                       "sandbox_approval" => true,
-                       "rules" => true,
-                       "mcp_elicitations" => true
-                     }
-                   }
-
                    payload["method"] == "turn/start" &&
                      get_in(payload, ["params", "cwd"]) == canonical_workspace &&
-                     get_in(payload, ["params", "approvalPolicy"]) == expected_approval_policy &&
+                     get_in(payload, ["params", "approvalPolicy"]) == "never" &&
                      get_in(payload, ["params", "sandboxPolicy"]) == expected_turn_sandbox_policy
                  end)
                else
