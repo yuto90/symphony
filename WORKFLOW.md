@@ -45,9 +45,12 @@ retries instead of creating duplicates. Preserve unrelated changes.
 Create a `codex/` branch from the remote default branch for new work. Implement
 the issue, run the required checks, review the diff, commit, and push only that
 branch. Open or update a PR in the configured repository, following its PR
-template. Include a link to this issue, validation results, and Japanese manual
-verification steps with expected outcomes. Resolve actionable review feedback
-and verify checks on the latest PR head before reporting it ready.
+template. Write the PR title and body in Japanese, including section headings,
+summaries, validation results, and manual verification steps with expected
+outcomes. If the repository template requires exact headings, keep those
+headings unchanged and write all other free-form text in Japanese. Include a
+link to this issue. Resolve actionable review feedback and verify checks on the
+latest PR head before reporting it ready.
 
 When ready for human review, first record the PR URL and final verification in
 the workpad, then remove only the `symphony` label from this issue using
