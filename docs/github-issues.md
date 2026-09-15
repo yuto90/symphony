@@ -48,6 +48,11 @@ uses a separate deployed copy of `WORKFLOW.md`, update that copy as well; mergin
 this repository change alone does not update the deployed workflow. The settings
 apply to newly started Codex app-server sessions.
 
+The fixed workflow prompt requires PR titles and bodies to be written in
+Japanese, including summaries, validation results, and manual verification
+steps. Exact headings required by a repository PR template remain unchanged;
+all other free-form PR text is written in Japanese.
+
 ## Ticket lifecycle
 
 - Open without `symphony`: backlog or waiting for human review; not dispatched.
